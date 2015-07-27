@@ -1,0 +1,26 @@
+library(xts)
+library(PerformanceAnalytics)
+library(quadprog)
+
+strategies.zoo = read.zoo("strategies.csv",sep = ",", header = T, format = "%m/%d/%Y")
+hf.nav = read.zoo("hf68.csv",sep = ",", header = T, format = "%m/%d/%Y")
+hf.nav = read.zoo("hf73.csv",sep = ",", header = T, format = "%m/%d/%Y")
+
+hf.nav = as.xts(hf.nav)
+hf.ret = Return.calculate(hf.nav)[-1]
+hf.nav = hf.nav[-1]
+hf = merge(hf.nav,hf.ret)
+plot.zoo(hf, main = "HF73")
+
+A <- matrix(0,nrow=9,ncol=9)
+diag(A) <- 1
+A <- rbind(rep(1,9),A)
+b <- rep(0,10)
+b[1] <- 1
+D <- crossprod(strategies.zoo)
+d <- as.vector(t(hf.ret)%*% strategies.zoo)
+  
+betas = solve.QP(D,d,t(A),b,1)$solution
+names(betas) = names(strategies.zoo)
+round(100*betas,2)
+barplot(100*betas) 
