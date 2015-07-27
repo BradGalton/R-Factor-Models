@@ -1,0 +1,39 @@
+rm(list=ls())  
+
+library(quantmod)
+library(factorAnalytics)
+
+####################################################################
+# Barra Industry Factor Model
+####################################################################
+# Read Fundamental Factor Data
+stacked.df <- read.table("factorDataSet.csv",as.is=T,header=T,sep=",")
+stacked.df[,1] <- as.yearmon(stacked.df[,1])
+stacked.df <- stacked.df[which(stacked.df[,1]>="Jan 2008" & stacked.df[,1]<="Dec 2012"),]
+
+# Create Industry Classification Matrix and Return Matrix
+beta.mat <- table(stacked.df$TICKER,stacked.df$SECTOR)
+beta.mat <- ifelse(beta.mat>0,1,0)
+ret.zt <- t(ret.z)
+ret.zt <- ret.zt[order(row.names(ret.zt)),]
+
+# Fit Industry Factor Model via 2-Stage Weighted Least Squares
+F.hat1 <- solve(crossprod(beta.mat))%*%t(beta.mat)%*%ret.zt
+E.hat1 <- ret.zt-beta.mat%*%F.hat1
+diagD.hat1 <- apply(E.hat1,1,var)
+Dinv.hat1 <- diag(diagD.hat1^(-1))
+H <- solve(t(beta.mat)%*%Dinv.hat1%*%beta.mat)%*%t(beta.mat)%*%Dinv.hat1
+F.hat2 <- H%*%ret.zt
+E.hat2 <- ret.zt-beta.mat%*%F.hat2
+diagD.hat2 <- apply(E.hat2,1,var)
+Dinv.hat2 <- diag(diagD.hat2^(-1))
+F.hat2 <- t(F.hat2)
+cov.ind <- beta.mat%*%var(F.hat2)%*%t(beta.mat)+diag(diagD.hat2)
+
+# Fit Cross-sectional Factor Model via fitFundamentalFactorModel
+rfr <- rep(coredata(returns.z$rf),each=30)
+stacked.df$RETURN <- stacked.df$RETURN-rfr
+cross.sect <- fitFundamentalFactorModel(stacked.df,exposure.names="SECTOR",returnsvar="RETURN",datevar="DATE",assetvar="TICKER")
+par(las=2)
+barplot(pca$r2,main="R-Squared Values for PCA Model",names.arg=colnames(ret.z),col=4)
+dev.off()
