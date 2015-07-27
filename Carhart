@@ -1,0 +1,42 @@
+rm(list=ls())  
+
+library(quantmod)
+library(factorAnalytics)
+
+####################################################################
+# Carhart 4-Factor Model
+####################################################################
+# Compute Excess Returns
+returns.z <- read.zoo("timeSeriesReturns.csv",FUN=as.yearmon,header=T,sep=",")
+returns.z <- returns.z[which(index(returns.z)>="Jan 2008"),]
+ret.z <- returns.z[,1:30]-returns.z[,34]
+fact.z <- returns.z[,c(31,32,33,35)]
+
+# Fit Carhart 4-Factor Model by Linear Regression
+carhart <- lm(ret.z~fact.z)
+a <- summary(carhart)
+rsq <- as.numeric(sapply(a,FUN="[","r.squared"))
+png(file="carhart-r2.png",width=7,height=5,units="in",res=300)
+par(las=2)
+barplot(rsq,main="R-Squared Values for Carhart Model",names.arg=colnames(ret.z),col=4)
+dev.off()
+
+# Compute Factor Model Covariance Matrix Estimate
+B <- coef(carhart)[-1,]
+sigma.F <- cov(fact.z)
+rerrv <- as.numeric(sapply(a,FUN="[",i=6))^2
+sigma.eps <- diag(rerrv)
+sigma <- t(B)%*%sigma.F%*%B+sigma.eps
+
+# Fit Carhart 4-Factor Model via fitTimeSeriesFactorModel
+carhart.betas <- fitTimeSeriesFactorModel(colnames(ret.z),colnames(fact.z),returns.z,fit.method="OLS")
+png(file="carhartBetas.png",width=7,height=5,units="in",res=300)
+par(list(mfrow=c(2,2),las=2))
+barplot(carhart.betas$beta[,1],main="Factor Beta for Market Return",names.arg=colnames(ret.z),cex.names=0.6,col=4)
+barplot(carhart.betas$beta[,2],main="Factor Beta for Small-minus-Big",names.arg=colnames(ret.z),cex.names=0.6,col=4)
+barplot(carhart.betas$beta[,3],main="Factor Beta for High-minus-Low",names.arg=colnames(ret.z),cex.names=0.6,col=4)
+barplot(carhart.betas$beta[,4],main="Factor Beta for Up-minus-Down",names.arg=colnames(ret.z),cex.names=0.6,col=4)
+dev.off()
+
+barplot(pca$r2,main="R-Squared Values for PCA Model",names.arg=colnames(ret.z),col=4)
+dev.off()
