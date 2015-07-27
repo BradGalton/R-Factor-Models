@@ -1,0 +1,37 @@
+rm(list=ls())  
+
+library(quantmod)
+library(factorAnalytics)
+
+####################################################################
+# PCA Factor Model
+####################################################################
+
+# Compute Excess Returns
+returns.z <- read.zoo("timeSeriesReturns.csv",FUN=as.yearmon,header=T,sep=",")
+returns.z <- returns.z[which(index(returns.z)>="Jan 2008"),]
+ret.z <- returns.z[,1:30]-returns.z[,34]
+fact.z <- returns.z[,c(31,32,33,35)]
+
+# Fit PCA Model Using prcomp Function
+pr <- prcomp(ret.z)
+ev <- pr$rotation[,1:4]
+k <- 4
+n <- ncol(ret.z)
+m <- nrow(ret.z)
+F.hat <- ret.z%*%ev
+tmp <- ret.z-F.hat%*%t(ev)
+b0 <- colMeans(tmp)
+res <- t(t(tmp)-b0)
+ESS <- colSums(res^2)
+xc <- t(t(ret.z)-colMeans(ret.z))
+TSS <- colSums(xc^2)
+r2 <- 1-ESS/TSS
+sigma.pca <- ev%*%var(F.hat)%*%t(ev)+diag(ESS/(m-k-1))
+
+# Fit PCA Model Using fitStatisticalFactorModel
+pca <- fitStatisticalFactorModel(ret.z,k=4)
+png(file="pca-r2.png",width=7,height=5,units="in",res=300)
+par(las=2)
+barplot(pca$r2,main="R-Squared Values for PCA Model",names.arg=colnames(ret.z),col=4)
+dev.off()
